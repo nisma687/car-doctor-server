@@ -2,15 +2,51 @@ const express= require('express');
 const app = express();
 const port= process.env.PORT || 5000;
 const cors = require('cors');
+const jwt=require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
+const cookieParser=require('cookie-parser');
+app.use(cookieParser());
 // middleware
-app.use(cors());
+app.use(cors(
+  {
+    origin:['http://localhost:5173'],
+    credentials:true,
+  }
+));
+
 app.use(express.json());
 // checking if env variables are working or not
 console.log(process.env.DB_USER);
 console.log(process.env.DB_PASS);
 
+
+// middlewares
+
+const logger =async(req,res,next)=>{
+  console.log('called',req.host,req.originalUrl);
+  next(); 
+}
+const verifyToken=async(req,res,next)=>{
+  const token=req.cookies?.token;
+  console.log('token',token);
+  if(!token){
+    return res.status(401).send({success:false,message:'no token found'});
+  }
+  jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
+    // error
+    if(err){
+      console.log('error in the jwt verify',err);
+      return res.status(401).send({success:false,message:'unauthorized'});
+    }
+    // if token is valid it would be decoded
+    console.log('value in the decoded',decoded);
+    req.user=decoded;
+    next();
+  })
+  
+
+}
 // database connection
 
 
@@ -34,8 +70,29 @@ async function run() {
     const serviceCollection=client.db("carDoctor").collection("services");
     const orderCollection=client.db("carDoctor").collection("orders");
 
+    // auth related api
+
+    app.post('/jwt',logger,async(req,res)=>{
+      const user=req.body;
+      console.log(user);
+
+      const token=jwt.sign(user,process.env. ACCESS_TOKEN_SECRET,{expiresIn:'2hr'} )
+
+
+      res
+      .cookie('token',token,{
+        httpOnly:true,
+       secure:false, /*http://localhost:5173/ */
+      
+       
+      })
+      .send({success:true});
+    })
+
+
+
     // finding all services
-    app.get('/services',async(req,res)=>{
+    app.get('/services',logger,async(req,res)=>{
         const cursor=serviceCollection.find();
         const services=await cursor.toArray();
         res.send(services);
@@ -57,9 +114,18 @@ async function run() {
     res.send(result);
   })
   // find one with query
-  app.get('/orders',async(req,res)=>{
+  app.get('/orders',logger,verifyToken,async(req,res)=>{
     console.log(req.query.email);
+    // console.log('tok tok token',req.cookies.token);
+    console.log('user in the valid token',req.user);
     let query={};
+    // verifying who can access the data
+    if(req.query.email !== req.user.email)
+    {
+      return res.status(403).send({success:false,message:'forbidden'});
+    }
+
+
     if(req.query?.email){
       query={email:req.query.email}
     }
@@ -70,7 +136,7 @@ async function run() {
   })
 
   // insert a document in the database
-  app.post('/orders',async(req,res)=>{
+  app.post('/orders',logger,verifyToken,async(req,res)=>{
     const data=req.body;
     console.log('inserting new order',data);
   
