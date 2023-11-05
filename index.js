@@ -82,11 +82,18 @@ async function run() {
       res
       .cookie('token',token,{
         httpOnly:true,
-       secure:false, /*http://localhost:5173/ */
+        // secure false for development, true for production
+        secure:true,
+        sameSite:'none'
       
        
       })
       .send({success:true});
+    })
+    // logout(jokhn user logout hbe tokhn cookie clear hbe)
+    app.post('/logout',async(req,res)=>{
+      const user=req.body;
+      res.clearCookie('token',{maxAge:0}).send({success:true});
     })
 
 
@@ -136,7 +143,7 @@ async function run() {
   })
 
   // insert a document in the database
-  app.post('/orders',logger,verifyToken,async(req,res)=>{
+  app.post('/orders',logger,async(req,res)=>{
     const data=req.body;
     console.log('inserting new order',data);
   
