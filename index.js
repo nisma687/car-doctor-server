@@ -10,7 +10,11 @@ app.use(cookieParser());
 // middleware
 app.use(cors(
   {
-    origin:['http://localhost:5173'],
+    origin:[
+      'http://localhost:5173',
+      'https://cars-doctor-bc7bb.web.app/',
+      'https://cars-doctor-bc7bb.firebaseapp.com/'
+    ],
     credentials:true,
   }
 ));
@@ -19,6 +23,13 @@ app.use(express.json());
 // checking if env variables are working or not
 console.log(process.env.DB_USER);
 console.log(process.env.DB_PASS);
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://cars-doctor-bc7bb.web.app');
+  // Other CORS headers can be added as needed
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+});
 
 
 // middlewares
@@ -65,7 +76,10 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     // deploy korar time nicher line o comment kore dibo
-    await client.connect();
+
+
+    // await client.connect();
+    
 
     const serviceCollection=client.db("carDoctor").collection("services");
     const orderCollection=client.db("carDoctor").collection("orders");
